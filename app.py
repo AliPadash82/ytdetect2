@@ -8,13 +8,10 @@ from googleapiclient.discovery import build
 import joblib
 from scipy.special import softmax
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-from sklearn.base import BaseEstimator, TransformerMixin
 import numpy as np
 import os
-from itertools import combinations
 import traceback
-import sklearn
-st.write("scikit-learn version:", sklearn.__version__)
+
 ORDER = ["negative", "neutral", "positive", "non-english"]
 CLASS_COLORS = {
     "negative": "#C0392B",
@@ -37,7 +34,7 @@ except ImportError:
 TRANSFORMERS_AVAILABLE = False
 try:
     import torch
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification
     TRANSFORMERS_AVAILABLE = True
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 except Exception:
@@ -55,7 +52,6 @@ except ImportError:
     st.error("`vaderSentiment` not found. Please install: `pip install vaderSentiment`")
     st.stop()
 
-# --- HELPER FUNCTIONS FOR CUSTOM MODEL ---
 import nltk
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import wordnet
@@ -437,7 +433,7 @@ if "results" in st.session_state and st.session_state["results"]:
                     if common_english_mask.sum() > 0:
                         # calculate agreement only on this common English subset
                         agreement_score = (df_baseline[common_english_mask]['Sentiment'] == df_compare[common_english_mask]['Sentiment']).mean()
-                        st.metric(f"Agreement Score (on English comments)", f"{agreement_score:.1%}")
+                        st.metric(f"Agreement Score", f"{agreement_score:.1%}")
 
                         # generate confusion matrix on the same subset
                         try:
