@@ -14,6 +14,7 @@ import os
 from itertools import combinations
 import traceback
 import sklearn
+st.write("scikit-learn version:", sklearn.__version__)
 ORDER = ["negative", "neutral", "positive", "non-english"]
 CLASS_COLORS = {
     "negative": "#C0392B",
