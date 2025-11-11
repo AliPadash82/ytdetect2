@@ -60,12 +60,19 @@ import nltk
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import wordnet
 
-try:
-    nltk.download('punkt', quiet=True)
-    nltk.download('punkt_tab', quiet=True)
-    nltk.download('averaged_perceptron_tagger', quiet=True)
-    nltk.download('wordnet', quiet=True)
-except Exception: pass
+for pkg in [
+    'punkt',
+    'punkt_tab',
+    'wordnet',
+    'omw-1.4',
+    'averaged_perceptron_tagger',
+    'averaged_perceptron_tagger_eng'
+]:
+    try:
+        nltk.download(pkg, quiet=True)
+    except:
+        pass
+
 
 lemmatizer = WordNetLemmatizer()
 vader_analyzer_for_custom = SentimentIntensityAnalyzer()
