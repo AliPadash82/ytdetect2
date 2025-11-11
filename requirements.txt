@@ -1,0 +1,16 @@
+streamlit
+pandas
+numpy
+matplotlib
+joblib
+scikit-learn
+scipy
+nltk
+vaderSentiment
+emoji
+langdetect
+transformers
+torch
+regex
+google-api-python-client
+tqdm
