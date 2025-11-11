@@ -5,11 +5,11 @@ matplotlib
 joblib
 scikit-learn==1.6.1
 scipy
-nltk
+nltk==3.9.1
 vaderSentiment
 emoji
-langdetect
-transformers
+langdetect==1.0.9
+transformers==4.55.2
 torch
 regex
 google-api-python-client
