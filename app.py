@@ -119,7 +119,6 @@ def safe_detect(text):
     except LangDetectException:
         return 'unknown'
 
-# --- LOADERS ---
 @st.cache_resource
 def load_youtube(api_key): return build("youtube", "v3", developerKey=api_key)
 
@@ -128,33 +127,23 @@ def load_roberta():
     if not TRANSFORMERS_AVAILABLE: return None, None
     if not os.path.isdir(ROBERTA_LOCAL_PATH):
         st.info(f"First-time setup: Downloading RoBERTa model to '{ROBERTA_LOCAL_PATH}'...")
-        with st.spinner("Downloading and saving model... Please wait."):
+        with st.spinner("Downloading and saving model..."):
             tokenizer = AutoTokenizer.from_pretrained(ROBERTA_REMOTE_NAME)
             model = AutoModelForSequenceClassification.from_pretrained(ROBERTA_REMOTE_NAME)
             tokenizer.save_pretrained(ROBERTA_LOCAL_PATH)
             model.save_pretrained(ROBERTA_LOCAL_PATH)
         st.success("Model downloaded successfully!")
-    st.info(f"Loading RoBERTa model from local path: '{ROBERTA_LOCAL_PATH}'")
+    st.info(f"Loading RoBERTa model...")
     tok = AutoTokenizer.from_pretrained(ROBERTA_LOCAL_PATH)
     mod = AutoModelForSequenceClassification.from_pretrained(ROBERTA_LOCAL_PATH)
     mod.to(device).eval()
     return tok, mod
 
-# --- GENERIC RUNNER FOR CUSTOM LR/SVM MODELS ---
-def run_custom_lr_model(txts, model_filename):
+def run_model(txts, model_filename):
     if not txts: return pd.DataFrame()
     try:
-        payload = joblib.load(model_filename)
-
-        if isinstance(payload, dict) and 'pipeline' in payload:
-            pipe = payload['pipeline']
-            if 'label_mapping' in payload:
-                reverse_label_mapping = {v: k for k, v in payload['label_mapping'].items()}
-            else:
-                reverse_label_mapping = {0: 'negative', 1: 'neutral', 2: 'positive'}
-        else:
-            pipe = payload
-            reverse_label_mapping = {0: 'negative', 1: 'neutral', 2: 'positive'}
+        pipe = joblib.load(model_filename)
+        reverse_label_mapping = {0: 'negative', 1: 'neutral', 2: 'positive'}
 
         df_predict = pd.DataFrame(txts, columns=['Comment'])
         
@@ -168,18 +157,10 @@ def run_custom_lr_model(txts, model_filename):
             numeric_preds = pipe.predict(df_predict)
             preds = [reverse_label_mapping.get(p, 'unknown') for p in numeric_preds]
 
-            if hasattr(pipe, "decision_function"):
-                decision_values = pipe.decision_function(df_predict)
-                if len(decision_values.shape) > 1:
-                    probs_all = softmax(decision_values, axis=1)
-                else: 
-                    probs_all = 1 / (1 + np.exp(-decision_values))
-                confs = [round(p.max(), 4) for p in probs_all] if len(probs_all.shape) > 1 else [round(p, 4) for p in probs_all]
-            elif hasattr(pipe, "predict_proba"):
-                probs_all = pipe.predict_proba(df_predict)
-                confs = [round(p.max(), 4) for p in probs_all]
-            else:
-                confs = [1.0] * len(preds)
+            print(model_filename, "decision function!")
+            decision_values = pipe.decision_function(df_predict)
+            probs_all = softmax(decision_values, axis=1)
+            confs = [round(p.max(), 4) for p in probs_all] if len(probs_all.shape) > 1 else [round(p, 4) for p in probs_all]
             
         return pd.DataFrame({"Comment": txts, "Sentiment": preds, "Confidence": confs})
     except FileNotFoundError:
@@ -191,7 +172,6 @@ def run_custom_lr_model(txts, model_filename):
         return pd.DataFrame()
 
 
-# --- MODEL RUNNERS ---
 def run_roberta_twitter(txts):
     if not TRANSFORMERS_AVAILABLE or not txts: return pd.DataFrame()
     try:
@@ -214,16 +194,16 @@ def run_roberta_twitter(txts):
         return pd.DataFrame()
 
 def run_lr_vader_custom(txts):
-    return run_custom_lr_model(txts, "final_lr_sentiment_model.joblib")
+    return run_model(txts, "final_lr_sentiment_model.joblib")
 
 def run_more_data_lr_model(txts):
-    return run_custom_lr_model(txts, "more_data_lr_model.joblib")
+    return run_model(txts, "more_data_lr_model.joblib")
 
 def run_final_linear_svm_model(txts):
-    return run_custom_lr_model(txts, "final_linear_svm_model.joblib")
+    return run_model(txts, "final_linear_svm_model.joblib")
 
 def run_linear_svm_model(txts):
-    return run_custom_lr_model(txts, "linear_svm_model.joblib")
+    return run_model(txts, "linear_svm_model.joblib")
 
 def run_hybrid_model(txts, threshold=0.8):
     if not txts:
@@ -356,7 +336,6 @@ if st.button("Analyze Sentiment"):
         comments_to_analyze = final_df.loc[indices_to_analyze, 'Comment'].tolist()
         
         if comments_to_analyze:
-            # Pass threshold only to the hybrid model
             if m_name == "Hybrid (LR-VADER -> RoBERTa)":
                 sentiment_results_df = MODELS[m_name](comments_to_analyze, threshold=confidence_threshold)
             else:
@@ -406,7 +385,7 @@ if "results" in st.session_state and st.session_state["results"]:
 
             st.dataframe(df.head(50), use_container_width=True, height=300)
             st.download_button(f"Download {m_name} Results", df.to_csv(index=False).encode('utf-8'), f"{m_name.replace(' ','_')}_results.csv", "text/csv")
-            
+
     if len(results) > 1:
         st.divider()
         st.subheader("Model Comparison against RoBERTa")
@@ -418,35 +397,32 @@ if "results" in st.session_state and st.session_state["results"]:
         else:
             other_model_names = [name for name in results.keys() if name != baseline_model_name]
 
-            if not other_model_names:
-                st.info("Only RoBERTa was run, so there are no other models to compare it against.")
-            else:
-                df_baseline = results[baseline_model_name]
+            df_baseline = results[baseline_model_name]
+            
+            for model_to_compare_name in other_model_names:
+                st.markdown(f"---")
+                st.write(f"#### {baseline_model_name} vs. {model_to_compare_name}")
+                df_compare = results[model_to_compare_name]
                 
-                for model_to_compare_name in other_model_names:
-                    st.markdown(f"---")
-                    st.write(f"#### {baseline_model_name} vs. {model_to_compare_name}")
-                    df_compare = results[model_to_compare_name]
-                    
-                    common_english_mask = (df_baseline['Sentiment'] != 'non-english') & (df_compare['Sentiment'] != 'non-english')
-                    
-                    if common_english_mask.sum() > 0:
-                        # calculate agreement only on this common English subset
-                        agreement_score = (df_baseline[common_english_mask]['Sentiment'] == df_compare[common_english_mask]['Sentiment']).mean()
-                        st.metric(f"Agreement Score", f"{agreement_score:.1%}")
+                common_english_mask = (df_baseline['Sentiment'] != 'non-english') & (df_compare['Sentiment'] != 'non-english')
+                
+                if common_english_mask.sum() > 0:
+                    # calculate agreement only on this common English subset
+                    agreement_score = (df_baseline[common_english_mask]['Sentiment'] == df_compare[common_english_mask]['Sentiment']).mean()
+                    st.metric(f"Agreement Score", f"{agreement_score:.1%}")
 
-                        # generate confusion matrix on the same subset
-                        try:
-                            cm_labels = [l for l in ORDER if l != 'non-english']
-                            cm = confusion_matrix(df_baseline[common_english_mask]["Sentiment"], df_compare[common_english_mask]["Sentiment"], labels=cm_labels)
-                            fig_cm, ax_cm = plt.subplots()
-                            disp = ConfusionMatrixDisplay(cm, display_labels=cm_labels)
-                            disp.plot(ax=ax_cm, cmap='Blues', colorbar=False)
-                            ax_cm.set_title(f"Confusion Matrix (English Comments)")
-                            ax_cm.set_xlabel(model_to_compare_name)
-                            ax_cm.set_ylabel(baseline_model_name)
-                            st.pyplot(fig_cm)
-                        except Exception as e:
-                            st.warning(f"Could not plot confusion matrix for this pair: {e}")
-                    else:
-                        st.info("No common English comments were found between these two models to compare.") 
+                    # generate confusion matrix on the same subset
+                    try:
+                        cm_labels = [l for l in ORDER if l != 'non-english']
+                        cm = confusion_matrix(df_baseline[common_english_mask]["Sentiment"], df_compare[common_english_mask]["Sentiment"], labels=cm_labels)
+                        fig_cm, ax_cm = plt.subplots()
+                        disp = ConfusionMatrixDisplay(cm, display_labels=cm_labels)
+                        disp.plot(ax=ax_cm, cmap='Blues', colorbar=False)
+                        ax_cm.set_title(f"Confusion Matrix (English Comments)")
+                        ax_cm.set_xlabel(model_to_compare_name)
+                        ax_cm.set_ylabel(baseline_model_name)
+                        st.pyplot(fig_cm)
+                    except Exception as e:
+                        st.warning(f"Could not plot confusion matrix for this pair: {e}")
+                else:
+                    st.info("No common English comments were found between these two models to compare.") 
