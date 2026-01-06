@@ -14,3 +14,4 @@ torch
 regex
 google-api-python-client
 tqdm
+spacy
