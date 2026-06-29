@@ -157,9 +157,6 @@ streamlit run app.py
 * لاگ‌گیری از خطاها به صورت robust
 
 ---
-
-اگر بخوای، می‌تونم همینو برات **خیلی حرفه‌ای‌تر (GitHub-ready + رزومه‌ای + خلاصه‌تر)** هم بازنویسی کنم.
-
  
 # 📊 YouTube Sentiment Analyzer
 
