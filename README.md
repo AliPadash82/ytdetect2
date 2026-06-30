@@ -81,6 +81,10 @@
 
 ---
 
+## نحوه عملکرد سامانه
+
+![نحوه عملکرد سامانه](Diagram.png)
+---
 ## 📂 ساختار پروژه
 
 ```text
@@ -224,6 +228,12 @@ Each model tab includes:
 * Responsible model breakdown (for hybrid mode)
 * Confusion matrix comparison
 * Download `.csv` button
+
+---
+
+## Diagram For How the System works
+
+![Diagram](Diagram.png)
 
 ---
 
